@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual env
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+*.env.local
+
+# Database
+claims_database.json
+*.db
+*.sqlite
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Qwen API key (crucial — never commit this file if it exists)
+# The API key is set via environment variable QWEN_API_KEY
+# Do not hardcode keys in source files

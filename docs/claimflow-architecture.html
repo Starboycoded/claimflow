@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClaimFlow Architecture — Autopilot Agent | Qwen Cloud Hackathon</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter Tight', sans-serif; background: #E4E1DC; min-height: 100vh; display: flex; justify-content: center; padding: 40px 20px; }
+  .page { max-width: 1200px; width: 100%; background: #FDFCF9; border-radius: 24px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); }
+
+  /* Hero */
+  .hero { background: #DEE5F7; padding: 40px 48px; position: relative; overflow: hidden; }
+  .hero::before { content:''; position:absolute; width:300px; height:200px; background:#A3AEEE; border-radius:40% 60% 50% 50% / 45% 55% 45% 55%; opacity:0.18; top:-40px; right:60px; }
+  .hero::after { content:''; position:absolute; width:180px; height:140px; background:#7F8FE0; border-radius:50% 40% 60% 45% / 55% 45% 55% 45%; opacity:0.12; bottom:-30px; left:40%; }
+  .hero h1 { font-size: 1.6rem; font-weight: 600; color: #151515; position: relative; z-index: 1; }
+  .hero .subtitle { font-size: 0.85rem; color: #717171; margin-top: 4px; position: relative; z-index: 1; }
+  .hero-row { display:flex; gap:32px; margin-top:16px; position:relative; z-index:1; }
+  .hero-stat .val { font-family: 'Noto Serif', serif; font-size: 2rem; font-weight: 500; color: #151515; letter-spacing: -0.02em; }
+  .hero-stat .lbl { font-size: 0.75rem; color: #717171; }
+
+  /* Content */
+  .content { padding: 40px 48px; }
+
+  .section-title { font-size: 17px; font-weight: 600; color: #151515; margin-bottom: 4px; }
+  .section-sub { font-size: 12px; color: #717171; margin-bottom: 16px; }
+  .divider { height: 0.5px; background: #E8E6E2; margin-bottom: 24px; }
+
+  /* Pipeline Diagram */
+  .pipeline { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; margin-bottom: 32px; }
+  .stage { flex: 1; min-width: 140px; background: #FFFFFF; border: 0.5px solid #E8E6E2; border-radius: 12px; padding: 16px; text-align: center; position: relative; }
+  .stage-num { font-size: 11px; font-weight: 500; color: #3E54CE; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .stage-name { font-size: 14px; font-weight: 600; color: #151515; margin-bottom: 2px; }
+  .stage-model { font-size: 11px; color: #717171; background: #DEE5F7; display: inline-block; padding: 2px 8px; border-radius: 20px; margin-top: 4px; }
+  .stage-module { font-size: 10px; color: #717171; margin-top: 4px; font-family: monospace; }
+  .arrow { display: flex; align-items: center; font-size: 1.2rem; color: #3E54CE; flex-shrink: 0; }
+
+  /* Two-column layout */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
+  @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* Flow boxes */
+  .flow-card { background: #FFFFFF; border: 0.5px solid #E8E6E2; border-radius: 12px; padding: 20px; }
+  .flow-card h3 { font-size: 15px; font-weight: 600; color: #151515; margin-bottom: 12px; }
+  .flow-item { display: flex; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid #E8E6E2; }
+  .flow-item:last-child { border-bottom: none; }
+  .flow-icon { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .flow-icon.intake { background: #E8FBCF; }
+  .flow-icon.classify { background: #DEE5F7; }
+  .flow-icon.verify { background: #F0E4E1; }
+  .flow-icon.fraud { background: #FDECEA; }
+  .flow-icon.decide { background: #FFF0DC; }
+  .flow-icon.respond { background: #D7EDE2; }
+  .flow-text .title { font-size: 13px; font-weight: 600; color: #151515; }
+  .flow-text .desc { font-size: 12px; color: #717171; }
+
+  /* Decision flow */
+  .decision-flow { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; justify-content: center; margin: 20px 0; }
+  .decision-node { background: #FFFFFF; border: 0.5px solid #E8E6E2; border-radius: 12px; padding: 14px 20px; text-align: center; }
+  .decision-node .label { font-size: 12px; color: #717171; }
+  .decision-node .value { font-size: 15px; font-weight: 600; color: #151515; }
+  .decision-node.approve { border-left: 3px solid #22c55e; }
+  .decision-node.info { border-left: 3px solid #3b82f6; }
+  .decision-node.escalate { border-left: 3px solid #ef4444; }
+
+  /* Dashboard preview */
+  .dashboard-preview { background: #FFFFFF; border: 0.5px solid #E8E6E2; border-radius: 12px; overflow: hidden; }
+  .db-header { background: #1e293b; padding: 12px 20px; color: #e2e8f0; font-size: 13px; font-weight: 600; }
+  .db-stats { display: flex; gap: 12px; padding: 14px 20px; }
+  .db-stat { flex:1; text-align:center; padding:10px; background:#FDFCF9; border-radius:8px; border:0.5px solid #E8E6E2; }
+  .db-stat .num { font-size:1.5rem; font-weight:700; color:#151515; }
+  .db-stat .lbl { font-size:11px; color:#717171; }
+  .db-row { display:flex; justify-content:space-between; padding:10px 20px; border-top:0.5px solid #E8E6E2; font-size:12px; }
+  .db-row.header { color:#717171; font-weight:600; }
+  .pill { font-size:10px; padding:3px 9px; border-radius:20px; font-weight:500; }
+  .pill.risk-high { background:#FDECEA; color:#C4433A; }
+  .pill.risk-low { background:#E8FBCF; color:#3D4826; }
+  .pill.approved { background:#DEE5F7; color:#3E54CE; }
+  .db-btn { font-size:10px; padding:3px 10px; border-radius:6px; border:none; color:white; cursor:default; }
+  .db-btn.ga { background:#22c55e; }
+  .db-btn.gd { background:#ef4444; }
+  .db-btn.gi { background:#3b82f6; }
+
+  /* Tech stack table */
+  .tech-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .tech-table th { text-align:left; padding:8px 12px; font-size:12px; font-weight:500; color:#717171; border-bottom:1px solid #E8E6E2; }
+  .tech-table td { padding:10px 12px; border-bottom:0.5px solid #E8E6E2; color:#3D3D3D; }
+  .tech-table tr:last-child td { border-bottom:none; }
+
+  /* Footer */
+  .footer { background: #DEE5F7; padding: 24px 48px; font-size: 12px; color: #717171; }
+  .footer a { color: #3E54CE; text-decoration: none; }
+
+  /* Alerts */
+  .alert { border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; font-size: 13px; }
+  .alert.info { background: #DEE5F7; color: #3E54CE; }
+  .alert h4 { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>⚡ ClaimFlow Architecture</h1>
+    <div class="subtitle">Track 4: Autopilot Agent — 6-Stage AI Claims Processing Pipeline powered by Qwen Cloud</div>
+    <div class="hero-row">
+      <div class="hero-stat"><div class="val">6</div><div class="lbl">Pipeline Stages</div></div>
+      <div class="hero-stat"><div class="val">2</div><div class="lbl">Qwen Models</div></div>
+      <div class="hero-stat"><div class="val">3</div><div class="lbl">Intake Channels</div></div>
+      <div class="hero-stat"><div class="val">5</div><div class="lbl">Languages</div></div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- Pipeline Overview -->
+    <div class="section-title">6-Stage Autopilot Pipeline</div>
+    <div class="section-sub">Each arrow represents data flowing to the next stage. The human-in-the-loop dashboard sits aside for escalated claims only.</div>
+    <div class="divider"></div>
+
+    <div class="pipeline">
+      <div class="stage">
+        <div class="stage-num">Stage 1</div>
+        <div class="stage-name">Intake</div>
+        <div class="stage-model">No AI</div>
+        <div class="stage-module">intake/receiver.py</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="stage-num">Stage 2</div>
+        <div class="stage-name">Classify</div>
+        <div class="stage-model">Qwen 3.7 Max</div>
+        <div class="stage-module">agent/classifier.py</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="stage-num">Stage 3</div>
+        <div class="stage-name">Verify</div>
+        <div class="stage-model">Qwen Vision Max</div>
+        <div class="stage-module">verification/verifier.py</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="stage-num">Stage 4</div>
+        <div class="stage-name">Fraud</div>
+        <div class="stage-model">Four Rs Logic</div>
+        <div class="stage-module">fraud/detector.py</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="stage-num">Stage 5</div>
+        <div class="stage-name">Decide</div>
+        <div class="stage-model">Rule Engine</div>
+        <div class="stage-module">decision/engine.py</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="stage-num">Stage 6</div>
+        <div class="stage-name">Respond</div>
+        <div class="stage-model">Templates</div>
+        <div class="stage-module">agent/responder.py</div>
+      </div>
+    </div>
+
+    <!-- Two-column detail -->
+    <div class="two-col">
+      <div class="flow-card">
+        <h3>📥 Intake Channels → Normalized</h3>
+        <div class="flow-item">
+          <div class="flow-icon intake">📱</div>
+          <div class="flow-text"><div class="title">WhatsApp</div><div class="desc">Message text + media → normalized claim</div></div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-icon intake">🌐</div>
+          <div class="flow-text"><div class="title">Web Form</div><div class="desc">Form submission → structured intake</div></div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-icon intake">🔌</div>
+          <div class="flow-text"><div class="title">REST API</div><div class="desc">JSON payload → direct pipeline entry</div></div>
+        </div>
+      </div>
+
+      <div class="flow-card">
+        <h3>🤖 AI Models (Qwen Cloud)</h3>
+        <div class="flow-item">
+          <div class="flow-icon classify">📝</div>
+          <div class="flow-text"><div class="title">Qwen 3.7 Max</div><div class="desc">Classifies claim type, object, urgency, sentiment, language</div></div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-icon verify">🔍</div>
+          <div class="flow-text"><div class="title">Qwen Vision Max</div><div class="desc">Inspects images: compares visible findings against claim text</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Decision Flow -->
+    <div class="section-title">Decision Engine — Auto-Resolve vs Escalate</div>
+    <div class="section-sub">Claims are auto-resolved at high confidence; edge cases route to the human dashboard.</div>
+    <div class="divider"></div>
+
+    <div class="decision-flow">
+      <div class="decision-node approve">
+        <div class="label">Confidence ≥ 85%</div>
+        <div class="value">✅ Auto-Approve</div>
+      </div>
+      <div style="font-size:1.5rem;color:#717171;">→</div>
+      <div class="decision-node info">
+        <div class="label">Confidence 60–84%</div>
+        <div class="value">📋 Request More Info</div>
+      </div>
+      <div style="font-size:1.5rem;color:#717171;">→</div>
+      <div class="decision-node escalate">
+        <div class="label">Confidence &lt; 60%</div>
+        <div class="value">🚨 Escalate to Human</div>
+      </div>
+    </div>
+
+    <div class="alert info" style="margin-top:0;">
+      <h4>Auto-escalation triggers:</h4>
+      Fraud detected (manual_review_required) · Critical urgency · High-risk user history · First-time claimants
+    </div>
+
+    <!-- Dashboard Preview -->
+    <div class="section-title">Human-in-the-Loop Dashboard</div>
+    <div class="section-sub">Flask app at localhost:5000 — shows only escalated claims for human review.</div>
+    <div class="divider"></div>
+
+    <div class="dashboard-preview" style="margin-bottom:32px;">
+      <div class="db-header">⚡ ClaimFlow Dashboard — Escalated Claims</div>
+      <div class="db-stats">
+        <div class="db-stat"><div class="num">3</div><div class="lbl">High Risk</div></div>
+        <div class="db-stat"><div class="num">7</div><div class="lbl">Escalated</div></div>
+        <div class="db-stat"><div class="num">42</div><div class="lbl">Auto-Resolved</div></div>
+      </div>
+      <div class="db-row header"><span>Claim ID</span><span>Type</span><span>Confidence</span><span>Fraud Risk</span><span>Actions</span></div>
+      <div class="db-row"><span style="font-family:monospace;">a1b2c3d4</span><span>damage_claim</span><span>55%</span><span class="pill risk-high">HIGH</span><span><span class="db-btn ga">Approve</span> <span class="db-btn gd">Deny</span> <span class="db-btn gi">Info</span></span></div>
+      <div class="db-row"><span style="font-family:monospace;">e5f6g7h8</span><span>warranty_claim</span><span>72%</span><span class="pill risk-low">LOW</span><span><span class="db-btn ga">Approve</span> <span class="db-btn gd">Deny</span> <span class="db-btn gi">Info</span></span></div>
+      <div class="db-row"><span style="font-family:monospace;">i9j0k1l2</span><span>refund_request</span><span>40%</span><span class="pill risk-high">HIGH</span><span><span class="db-btn ga">Approve</span> <span class="db-btn gd">Deny</span> <span class="db-btn gi">Info</span></span></div>
+    </div>
+
+    <!-- Fraud Framework -->
+    <div class="section-title">Four Rs Fraud Detection Framework</div>
+    <div class="section-sub">Developed during HackerRank Orchestrate June 2026 — adapted for Qwen Cloud.</div>
+    <div class="divider"></div>
+
+    <div class="flow-card" style="margin-bottom:32px;">
+      <div class="flow-item">
+        <div class="flow-icon fraud">R1</div>
+        <div class="flow-text"><div class="title">Recognize</div><div class="desc">Separate claim text from actual visible findings in images</div></div>
+      </div>
+      <div class="flow-item">
+        <div class="flow-icon fraud">R2</div>
+        <div class="flow-text"><div class="title">Reject</div><div class="desc">Flag claims where images show a different object or part than claimed</div></div>
+      </div>
+      <div class="flow-item">
+        <div class="flow-icon fraud">R3</div>
+        <div class="flow-text"><div class="title">Reveal</div><div class="desc">Detect image manipulation, text instructions in photos, non-original images</div></div>
+      </div>
+      <div class="flow-item">
+        <div class="flow-icon fraud">R4</div>
+        <div class="flow-text"><div class="title">Route</div><div class="desc">Check user history — flag repeat claimants, prior fraud flags, suspicious patterns</div></div>
+      </div>
+    </div>
+
+    <!-- Tech Stack -->
+    <div class="section-title">Technology Stack</div>
+    <div class="divider"></div>
+    <table class="tech-table">
+      <tr><th>Component</th><th>Technology</th></tr>
+      <tr><td>AI Models</td><td>Qwen 3.7 Max (text) · Qwen Vision Max (vision)</td></tr>
+      <tr><td>API Protocol</td><td>Anthropic-compatible via DashScope International</td></tr>
+      <tr><td>Dashboard</td><td>Flask 3.0 + server-side templates</td></tr>
+      <tr><td>Languages</td><td>en · es · fr · ar · zh</td></tr>
+      <tr><td>Testing</td><td>pytest (5 unit tests)</td></tr>
+      <tr><td>Storage (demo)</td><td>In-memory + JSON file</td></tr>
+      <tr><td>Storage (prod)</td><td>PostgreSQL (ready for upgrade)</td></tr>
+    </table>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <strong>ClaimFlow</strong> — Autopilot Agent for the Global AI Hackathon Series with Qwen Cloud<br>
+    Built by Joshua (CodedLabs) · Track 4: Autopilot Agent · Deadline: July 9, 2026<br>
+    <a href="https://qwencloud-hackathon.devpost.com/" target="_blank">Devpost</a> · 
+    <a href="https://home.qwencloud.com/api-keys" target="_blank">Qwen Cloud</a> · 
+    <a href="https://github.com" target="_blank">GitHub</a>
+  </div>
+
+</div>
+</body>
+</html>
